@@ -8,16 +8,16 @@ function timeAgo(dateString) {
   const date = new Date(dateString);
   const seconds = Math.floor((new Date() - date) / 1000);
   let interval = seconds / 31536000;
-  if (interval > 1) return Math.floor(interval) + "y ago";
+  if (interval > 1) return Math.floor(interval) + "y";
   interval = seconds / 2592000;
-  if (interval > 1) return Math.floor(interval) + "mo ago";
+  if (interval > 1) return Math.floor(interval) + "mo";
   interval = seconds / 86400;
-  if (interval > 1) return Math.floor(interval) + "d ago";
+  if (interval > 1) return Math.floor(interval) + "d";
   interval = seconds / 3600;
-  if (interval > 1) return Math.floor(interval) + "h ago";
+  if (interval > 1) return Math.floor(interval) + "h";
   interval = seconds / 60;
-  if (interval > 1) return Math.floor(interval) + "m ago";
-  return "Just now";
+  if (interval > 1) return Math.floor(interval) + "m";
+  return "now";
 }
 
 export default function Home() {
@@ -45,7 +45,6 @@ export default function Home() {
   const [isLoginMode, setIsLoginMode] = useState(false); 
   const [isDarkMode, setIsDarkMode] = useState(false);
   
-  // NEW: Search feature
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [showSearch, setShowSearch] = useState(false);
@@ -78,15 +77,13 @@ export default function Home() {
     if (data) setProfile(data);
   }
 
-   async function fetchPosts() {
-    // Fetch posts and count likes directly from the likes table
+  async function fetchPosts() {
     const { data } = await supabase
       .from("posts")
       .select("*, profiles(full_name, username, is_coi, avatar_url), likes(count)")
       .order("created_at", { ascending: false });
       
     if (data) {
-      // Clean up the data so like_count is a simple number
       const formattedData = data.map(post => ({
         ...post,
         like_count: post.likes[0]?.count || 0
@@ -110,27 +107,20 @@ export default function Home() {
     if (data) setFollowingIds(data.map(f => f.following_id));
   }
 
-  // NEW: Search for users
   async function handleSearch(e) {
     const query = e.target.value;
     setSearchQuery(query);
-    
     if (query.length > 0) {
-      const { data } = await supabase.from("profiles")
-        .select("*")
-        .ilike("username", `%${query}%`)
-        .limit(5);
+      const { data } = await supabase.from("profiles").select("*").ilike("username", `%${query}%`).limit(5);
       setSearchResults(data || []);
       setShowSearch(true);
-    } else {
-      setShowSearch(false);
-    }
+    } else { setShowSearch(false); }
   }
 
   async function handleSignUp() {
     setLoading(true);
     const { data, error } = await supabase.auth.signUp({ email, password });
-    if (error) setMessage("Error: " + error.message);
+    if (error) setMessage(error.message);
     else { setUser(data.user); setTimeout(() => { fetchProfile(data.user.id); fetchPosts(); }, 2000); }
     setLoading(false);
   }
@@ -138,7 +128,7 @@ export default function Home() {
   async function handleLogin() {
     setLoading(true);
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) setMessage("Error: " + error.message);
+    if (error) setMessage(error.message);
     else { setUser(data.user); fetchProfile(data.user.id); fetchPosts(); }
     setLoading(false);
   }
@@ -149,15 +139,11 @@ export default function Home() {
     setLoading(true);
     const fileExt = file.name.split('.').pop();
     const filePath = `${user.id}/avatar.${fileExt}`;
-    
     const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, file, { upsert: true });
     if (uploadError) { setMessage("Error uploading avatar"); setLoading(false); return; }
-
     const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
     await supabase.from("profiles").update({ avatar_url: data.publicUrl }).eq("id", user.id);
-    
     fetchProfile(user.id);
-    setMessage(" Avatar updated!");
     setLoading(false);
   }
 
@@ -202,18 +188,11 @@ export default function Home() {
     fetchPosts();
   }
 
-   async function handleToggleLike(postId) {
+  async function handleToggleLike(postId) {
     const isLiked = userLikes.includes(postId);
-    
-    if (isLiked) {
-      await supabase.from("likes").delete().eq("user_id", user.id).eq("post_id", postId);
-    } else {
-      await supabase.from("likes").insert({ user_id: user.id, post_id: postId });
-    }
-    
-    // Refresh the posts and likes to show the new count
-    fetchPosts(); 
-    fetchUserLikes(user.id);
+    if (isLiked) await supabase.from("likes").delete().eq("user_id", user.id).eq("post_id", postId);
+    else await supabase.from("likes").insert({ user_id: user.id, post_id: postId });
+    fetchPosts(); fetchUserLikes(user.id);
   }
 
   async function handleToggleFollow(targetUserId) {
@@ -239,84 +218,107 @@ export default function Home() {
 
   const getAvatar = (profileData, sizeClass = "w-10 h-10") => {
     if (profileData?.avatar_url) {
-      return <img src={profileData.avatar_url} className={`${sizeClass} rounded-full object-cover border-2 border-white dark:border-slate-700`} alt="Avatar" />;
+      return <img src={profileData.avatar_url} className={`${sizeClass} rounded-full object-cover border-2 border-white dark:border-slate-800 shadow-sm`} alt="Avatar" />;
     }
     return (
-      <div className={`${sizeClass} rounded-full flex items-center justify-center font-bold text-white bg-gradient-to-br from-orange-500 to-green-600 border-2 border-white dark:border-slate-700`}>
+      <div className={`${sizeClass} rounded-full flex items-center justify-center font-bold text-white bg-gradient-to-br from-orange-500 to-green-600 border-2 border-white dark:border-slate-800 shadow-sm`}>
         {profileData?.full_name?.[0] || "U"}
       </div>
     );
   };
 
   return (
-    <main className="min-h-screen bg-slate-50 dark:bg-slate-900 p-4 sm:p-8 transition-colors duration-300">
-      <div className="max-w-2xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-orange-500 to-green-600 bg-clip-text text-transparent">Deshly</h1>
-          <div className="flex items-center gap-4">
-            <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-xl">{isDarkMode ? '☀️' : '🌙'}</button>
-            {user && <button onClick={handleSignOut} className="text-sm text-slate-500">Sign Out</button>}
+    <main className="min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
+      {/* MODERN STICKY HEADER */}
+      <header className="sticky top-0 z-50 backdrop-blur-lg bg-white/80 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-800">
+        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
+          <h1 className="text-2xl font-black bg-gradient-to-r from-orange-500 to-green-600 bg-clip-text text-transparent tracking-tight">Deshly</h1>
+          <div className="flex items-center gap-3">
+            <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-lg">
+              {isDarkMode ? '☀️' : '🌙'}
+            </button>
+            {user && (
+              <div className="relative group">
+                {getAvatar(profile, "w-8 h-8")}
+                <button onClick={handleSignOut} className="absolute right-0 top-full mt-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg p-2 text-xs text-red-500 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                  Sign Out
+                </button>
+              </div>
+            )}
           </div>
         </div>
+      </header>
 
+      <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
         {!user ? (
-          <div className="bg-white dark:bg-slate-800 p-8 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 space-y-4">
-            <h2 className="text-xl font-bold text-slate-900 dark:text-white">{isLoginMode ? "Welcome Back!" : "Join the Community"}</h2>
-            <div className="flex gap-2 bg-slate-100 dark:bg-slate-700 p-1 rounded-lg">
-              <button onClick={() => setIsLoginMode(false)} className={`flex-1 py-2 rounded-md text-sm font-medium ${!isLoginMode ? 'bg-white dark:bg-slate-600 shadow-sm text-slate-900 dark:text-white' : 'text-slate-500'}`}>Sign Up</button>
-              <button onClick={() => setIsLoginMode(true)} className={`flex-1 py-2 rounded-md text-sm font-medium ${isLoginMode ? 'bg-white dark:bg-slate-600 shadow-sm text-slate-900 dark:text-white' : 'text-slate-500'}`}>Log In</button>
+          /* LOGIN / SIGNUP CARD */
+          <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-xl border border-slate-200 dark:border-slate-800 space-y-6 mt-10">
+            <div className="text-center space-y-2">
+              <h2 className="text-3xl font-black text-slate-900 dark:text-white">Welcome to Deshly</h2>
+              <p className="text-slate-500 dark:text-slate-400">Join the community of proud citizens.</p>
             </div>
-            <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white" />
-            <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full p-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white" />
-            <button onClick={isLoginMode ? handleLogin : handleSignUp} disabled={loading} className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-lg">{loading ? "Processing..." : (isLoginMode ? "Log In" : "Sign Up")}</button>
+            <div className="flex gap-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+              <button onClick={() => setIsLoginMode(false)} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${!isLoginMode ? 'bg-white dark:bg-slate-700 shadow-sm text-slate-900 dark:text-white' : 'text-slate-500'}`}>Sign Up</button>
+              <button onClick={() => setIsLoginMode(true)} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${isLoginMode ? 'bg-white dark:bg-slate-700 shadow-sm text-slate-900 dark:text-white' : 'text-slate-500'}`}>Log In</button>
+            </div>
+            <div className="space-y-3">
+              <input type="email" placeholder="Email address" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-3.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all" />
+              <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full p-3.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all" />
+            </div>
+            <button onClick={isLoginMode ? handleLogin : handleSignUp} disabled={loading} className="w-full bg-gradient-to-r from-orange-500 to-green-600 hover:from-orange-600 hover:to-green-700 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-orange-500/20 transition-all transform hover:scale-[1.02] active:scale-95">
+              {loading ? "Processing..." : (isLoginMode ? "Log In" : "Create Account")}
+            </button>
           </div>
         ) : (
           <>
             {/* PROFILE CARD */}
-            <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex gap-4 items-center">
+            <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800 flex gap-4 items-center">
               <div className="relative group cursor-pointer">
-                {getAvatar(profile, "w-16 h-16")}
+                {getAvatar(profile, "w-14 h-14")}
                 <label className="absolute inset-0 flex items-center justify-center bg-black/60 text-white text-[10px] font-bold rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                  CHANGE
+                  EDIT
                   <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
                 </label>
               </div>
               <div className="flex-1">
-                <p className="font-bold text-slate-900 dark:text-white text-lg">{profile?.full_name}</p>
+                <div className="flex items-center gap-2">
+                  <p className="font-bold text-slate-900 dark:text-white text-lg">{profile?.full_name}</p>
+                  {profile?.is_coi && <span className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white bg-gradient-to-r from-orange-500 to-green-600">COI</span>}
+                </div>
                 <p className="text-sm text-slate-500 dark:text-slate-400">@{profile?.username}</p>
               </div>
-              <button onClick={() => setIsEditing(!isEditing)} className="text-sm text-blue-600 dark:text-blue-400 font-medium">{isEditing ? "Cancel" : "Edit"}</button>
+              <button onClick={() => setIsEditing(!isEditing)} className="px-4 py-2 rounded-full text-sm font-bold bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+                {isEditing ? "Cancel" : "Edit"}
+              </button>
             </div>
 
             {isEditing && (
-              <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 space-y-3">
-                <input type="text" placeholder="Your Name" value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full p-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white" />
-                <input type="text" placeholder="Username" value={editUsername} onChange={(e) => setEditUsername(e.target.value.replace(/\s/g, ''))} className="w-full p-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white" />
-                <button onClick={handleUpdateProfile} disabled={loading} className="w-full bg-slate-900 dark:bg-white dark:text-slate-900 text-white py-2 rounded-lg font-medium">Save Changes</button>
+              <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800 space-y-4">
+                <input type="text" placeholder="Your Name" value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-orange-500" />
+                <input type="text" placeholder="Username" value={editUsername} onChange={(e) => setEditUsername(e.target.value.replace(/\s/g, ''))} className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-orange-500" />
+                <button onClick={handleUpdateProfile} disabled={loading} className="w-full bg-slate-900 dark:bg-white dark:text-slate-900 text-white py-3 rounded-xl font-bold">Save Changes</button>
               </div>
             )}
 
-            {/* NEW: SEARCH BAR */}
+            {/* SEARCH BAR */}
             <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                <svg className="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+              </div>
               <input 
                 type="text" 
-                placeholder="Search for friends by username..." 
+                placeholder="Search for friends..." 
                 value={searchQuery}
                 onChange={handleSearch}
-                className="w-full p-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                className="w-full pl-11 pr-4 py-3.5 border border-slate-200 dark:border-slate-800 rounded-2xl bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all shadow-sm"
               />
               {showSearch && searchResults.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg z-10 max-h-64 overflow-y-auto">
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-20 overflow-hidden">
                   {searchResults.map((result) => (
-                    <Link 
-                      key={result.id} 
-                      href={`/profile/${result.username}`}
-                      onClick={() => { setShowSearch(false); setSearchQuery(""); }}
-                      className="flex items-center gap-3 p-3 hover:bg-slate-50 dark:hover:bg-slate-700 border-b border-slate-100 dark:border-slate-700 last:border-0"
-                    >
-                      {getAvatar(result, "w-8 h-8")}
+                    <Link key={result.id} href={`/profile/${result.username}`} onClick={() => { setShowSearch(false); setSearchQuery(""); }} className="flex items-center gap-3 p-3 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors border-b border-slate-100 dark:border-slate-800 last:border-0">
+                      {getAvatar(result, "w-10 h-10")}
                       <div>
-                        <p className="font-semibold text-slate-900 dark:text-white text-sm">{result.full_name}</p>
+                        <p className="font-bold text-slate-900 dark:text-white text-sm">{result.full_name}</p>
                         <p className="text-xs text-slate-500 dark:text-slate-400">@{result.username}</p>
                       </div>
                     </Link>
@@ -326,28 +328,37 @@ export default function Home() {
             </div>
 
             {/* POST CREATOR */}
-            <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700">
-              <textarea value={newPostContent} onChange={(e) => setNewPostContent(e.target.value)} placeholder={`What's on your mind?`} className="w-full p-3 border border-slate-200 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none h-24 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white"></textarea>
-              {imagePreview && (
-                <div className="mt-3 relative">
-                  <img src={imagePreview} alt="Preview" className="w-full h-48 object-cover rounded-lg" />
-                  <button onClick={() => { setImagePreview(null); setSelectedImage(null); }} className="absolute top-2 right-2 bg-black/50 text-white rounded-full p-1">X</button>
+            <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800">
+              <div className="flex gap-3">
+                {getAvatar(profile, "w-10 h-10")}
+                <div className="flex-1">
+                  <textarea value={newPostContent} onChange={(e) => setNewPostContent(e.target.value)} placeholder={`What's happening?`} className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/50 resize-none h-24 text-slate-900 dark:text-white placeholder-slate-400"></textarea>
+                  {imagePreview && (
+                    <div className="mt-3 relative rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700">
+                      <img src={imagePreview} alt="Preview" className="w-full h-48 object-cover" />
+                      <button onClick={() => { setImagePreview(null); setSelectedImage(null); }} className="absolute top-2 right-2 bg-black/70 text-white rounded-full p-1.5 hover:bg-black transition-colors">
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                      </button>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center mt-4">
+                    <label className="cursor-pointer flex items-center gap-2 text-orange-500 hover:text-orange-600 font-medium text-sm transition-colors">
+                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                      Photo
+                      <input id="image-upload" type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
+                    </label>
+                    <button onClick={handleCreatePost} disabled={loading} className="bg-gradient-to-r from-orange-500 to-green-600 hover:from-orange-600 hover:to-green-700 text-white px-6 py-2 rounded-full font-bold text-sm shadow-lg shadow-orange-500/20 transition-all transform hover:scale-105 active:scale-95 disabled:opacity-50">
+                      {loading ? "Posting..." : "Post"}
+                    </button>
+                  </div>
                 </div>
-              )}
-              <div className="flex justify-between items-center mt-3">
-                <label className="cursor-pointer flex items-center gap-2 text-slate-500 dark:text-slate-400 hover:text-orange-500">
-                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                  <span className="text-sm font-medium">Add Photo</span>
-                  <input id="image-upload" type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
-                </label>
-                <button onClick={handleCreatePost} disabled={loading} className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-2 rounded-lg font-medium">Post</button>
               </div>
             </div>
 
             {/* FEED FILTER */}
-            <div className="flex gap-2 bg-white dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 w-fit mx-auto">
-              <button onClick={() => setFeedFilter('all')} className={`px-6 py-2 rounded-lg text-sm font-medium ${feedFilter === 'all' ? 'bg-slate-900 dark:bg-white dark:text-slate-900 text-white' : 'text-slate-500'}`}>All Posts</button>
-              <button onClick={() => setFeedFilter('following')} className={`px-6 py-2 rounded-lg text-sm font-medium ${feedFilter === 'following' ? 'bg-slate-900 dark:bg-white dark:text-slate-900 text-white' : 'text-slate-500'}`}>Following</button>
+            <div className="flex gap-2 bg-white dark:bg-slate-900 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-800 w-fit mx-auto shadow-sm">
+              <button onClick={() => setFeedFilter('all')} className={`px-8 py-2 rounded-xl text-sm font-bold transition-all ${feedFilter === 'all' ? 'bg-slate-900 dark:bg-white dark:text-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>For You</button>
+              <button onClick={() => setFeedFilter('following')} className={`px-8 py-2 rounded-xl text-sm font-bold transition-all ${feedFilter === 'following' ? 'bg-slate-900 dark:bg-white dark:text-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>Following</button>
             </div>
 
             {/* THE FEED */}
@@ -359,74 +370,89 @@ export default function Home() {
                 const isFollowing = followingIds.includes(post.user_id);
 
                 return (
-                  <div key={post.id} className="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700">
-                    <div className="flex items-center justify-between mb-3">
+                  <div key={post.id} className="bg-white dark:bg-slate-900 p-5 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
+                    <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-3">
-                        {getAvatar(post.profiles)}
+                        <Link href={`/profile/${post.profiles?.username}`}>
+                          {getAvatar(post.profiles)}
+                        </Link>
                         <div>
                           <div className="flex items-center gap-2">
                             <Link href={`/profile/${post.profiles?.username}`} className="font-bold text-slate-900 dark:text-white hover:text-orange-500 transition-colors">
                               {post.profiles?.full_name || "Anonymous"}
                             </Link>
-                            {post.profiles?.is_coi && <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold text-white bg-gradient-to-r from-orange-500 to-green-600">COI</span>}
+                            {post.profiles?.is_coi && <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold text-white bg-gradient-to-r from-orange-500 to-green-600">COI</span>}
                           </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-slate-500 dark:text-slate-400">@{post.profiles?.username}</span>
-                            <span className="text-xs text-slate-400 dark:text-slate-500">• {timeAgo(post.created_at)}</span>
+                          <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                            <span>@{post.profiles?.username}</span>
+                            <span>•</span>
+                            <span>{timeAgo(post.created_at)}</span>
                           </div>
                         </div>
                       </div>
                       {isAuthor && (
-                        <button onClick={() => handleDeletePost(post.id)} className="text-slate-400 hover:text-red-500">
-                          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        <button onClick={() => handleDeletePost(post.id)} className="text-slate-400 hover:text-red-500 p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                         </button>
                       )}
                     </div>
                     
-                    <p className="text-slate-800 dark:text-slate-100 leading-relaxed mb-3 whitespace-pre-wrap">{post.content}</p>
+                    <p className="text-slate-800 dark:text-slate-200 leading-relaxed mb-4 whitespace-pre-wrap text-[15px]">{post.content}</p>
                     
                     {post.image_url && (
-                      <div className="mb-3 rounded-xl overflow-hidden border border-slate-100 dark:border-slate-700">
-                        <img src={post.image_url} alt="Post" className="w-full h-auto object-cover max-h-96" />
+                      <div className="mb-4 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800">
+                        <img src={post.image_url} alt="Post" className="w-full h-auto object-cover max-h-[500px]" />
                       </div>
                     )}
                     
-                    <div className="flex items-center gap-4 pt-3 border-t border-slate-100 dark:border-slate-700">
-                      <button onClick={() => onClick={() => handleToggleLike(post.id)} className={`flex items-center gap-1.5 text-sm font-medium ${isLiked ? 'text-red-500' : 'text-slate-500 dark:text-slate-400'}`}>
+                    <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
+                      <button onClick={() => handleToggleLike(post.id)} className={`flex items-center gap-2 text-sm font-medium transition-all ${isLiked ? 'text-red-500' : 'text-slate-500 dark:text-slate-400 hover:text-red-500'}`}>
                         <svg className="h-5 w-5" fill={isLiked ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>
                         {post.like_count || 0}
                       </button>
-                      <span className="text-sm text-slate-500 dark:text-slate-400">{postComments.length} comments</span>
+                      
+                      <span className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+                        {postComments.length}
+                      </span>
+
                       {!isAuthor && (
-                        <button onClick={() => handleToggleFollow(post.user_id)} className={`ml-auto px-3 py-1 rounded-full text-xs font-bold border ${isFollowing ? 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600' : 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800'}`}>
+                        <button onClick={() => handleToggleFollow(post.user_id)} className={`px-4 py-1.5 rounded-full text-xs font-bold border transition-all ${isFollowing ? 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-red-50 hover:text-red-500 hover:border-red-200' : 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800 hover:bg-blue-100'}`}>
                           {isFollowing ? 'Following' : 'Follow'}
                         </button>
                       )}
                     </div>
 
-                    <div className="mt-4 space-y-3">
-                      {postComments.map((comment) => (
-                        <div key={comment.id} className="flex gap-2 text-sm items-start">
-                          {getAvatar(comment.profiles, "w-6 h-6")}
-                          <div className="bg-slate-100 dark:bg-slate-700 p-2 rounded-lg flex-1">
-                            <span className="font-bold text-slate-900 dark:text-white text-xs">{comment.profiles?.full_name}</span>
-                            <p className="text-slate-700 dark:text-slate-200 text-xs mt-0.5">{comment.content}</p>
+                    {/* COMMENTS */}
+                    {postComments.length > 0 && (
+                      <div className="mt-4 space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+                        {postComments.map((comment) => (
+                          <div key={comment.id} className="flex gap-2.5 text-sm items-start">
+                            {getAvatar(comment.profiles, "w-7 h-7")}
+                            <div className="bg-slate-50 dark:bg-slate-800 p-3 rounded-2xl rounded-tl-none flex-1">
+                              <span className="font-bold text-slate-900 dark:text-white text-xs">{comment.profiles?.full_name}</span>
+                              <p className="text-slate-700 dark:text-slate-300 text-xs mt-0.5 leading-relaxed">{comment.content}</p>
+                            </div>
                           </div>
-                        </div>
-                      ))}
-                      <div className="flex gap-2 pt-2">
-                        <input type="text" placeholder="Write a comment..." value={commentInputs[post.id] || ""} onChange={(e) => setCommentInputs({ ...commentInputs, [post.id]: e.target.value })} onKeyDown={(e) => e.key === 'Enter' && handleAddComment(post.id)} className="flex-1 p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-600 rounded-lg text-sm text-slate-900 dark:text-white" />
-                        <button onClick={() => handleAddComment(post.id)} className="text-orange-600 dark:text-orange-400 font-bold text-sm">Post</button>
+                        ))}
                       </div>
+                    )}
+                    
+                    <div className="flex gap-2 mt-4 pt-3 border-t border-slate-100 dark:border-slate-800">
+                      <input type="text" placeholder="Write a comment..." value={commentInputs[post.id] || ""} onChange={(e) => setCommentInputs({ ...commentInputs, [post.id]: e.target.value })} onKeyDown={(e) => e.key === 'Enter' && handleAddComment(post.id)} className="flex-1 p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-orange-500/50" />
+                      <button onClick={() => handleAddComment(post.id)} className="text-orange-500 font-bold text-sm hover:text-orange-600 px-3">Post</button>
                     </div>
                   </div>
                 );
               })}
-              {filteredPosts.length === 0 && <div className="text-center text-slate-500 dark:text-slate-400 py-10">No posts yet.</div>}
+              {filteredPosts.length === 0 && <div className="text-center text-slate-500 dark:text-slate-400 py-16">
+                <p className="text-4xl mb-2">🦗</p>
+                <p className="font-medium">No posts yet.</p>
+              </div>}
             </div>
           </>
         )}
-        {message && <div className="fixed bottom-4 right-4 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg">{message}</div>}
+        {message && <div className="fixed bottom-6 right-6 bg-slate-900 dark:bg-white dark:text-slate-900 text-white px-5 py-3 rounded-xl shadow-2xl font-medium z-50">{message}</div>}
       </div>
     </main>
   );
