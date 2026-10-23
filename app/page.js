@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { supabase } from "../lib/supabase";
 
-// Helper function for "Time Ago"
 function timeAgo(dateString) {
   const date = new Date(dateString);
   const seconds = Math.floor((new Date() - date) / 1000);
@@ -44,10 +44,11 @@ export default function Home() {
   const [feedFilter, setFeedFilter] = useState("all"); 
   const [isLoginMode, setIsLoginMode] = useState(false); 
   const [isDarkMode, setIsDarkMode] = useState(false);
-
-  // NEW: Avatar State
-  const [selectedAvatar, setSelectedAvatar] = useState(null);
-  const [avatarPreview, setAvatarPreview] = useState(null);
+  
+  // NEW: Search feature
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [showSearch, setShowSearch] = useState(false);
 
   useEffect(() => { checkUser(); }, []);
   
@@ -57,11 +58,7 @@ export default function Home() {
   }, [isDarkMode]);
 
   useEffect(() => {
-    if (profile) { 
-      setEditName(profile.full_name || ""); 
-      setEditUsername(profile.username || ""); 
-      setAvatarPreview(profile.avatar_url); // Load existing avatar
-    }
+    if (profile) { setEditName(profile.full_name || ""); setEditUsername(profile.username || ""); }
   }, [profile]);
 
   async function checkUser() {
@@ -101,14 +98,28 @@ export default function Home() {
     if (data) setFollowingIds(data.map(f => f.following_id));
   }
 
+  // NEW: Search for users
+  async function handleSearch(e) {
+    const query = e.target.value;
+    setSearchQuery(query);
+    
+    if (query.length > 0) {
+      const { data } = await supabase.from("profiles")
+        .select("*")
+        .ilike("username", `%${query}%`)
+        .limit(5);
+      setSearchResults(data || []);
+      setShowSearch(true);
+    } else {
+      setShowSearch(false);
+    }
+  }
+
   async function handleSignUp() {
     setLoading(true);
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) setMessage("Error: " + error.message);
-    else {
-      setUser(data.user);
-      setTimeout(() => { fetchProfile(data.user.id); fetchPosts(); fetchUserLikes(data.user.id); fetchComments(); fetchFollowing(data.user.id); }, 2000); 
-    }
+    else { setUser(data.user); setTimeout(() => { fetchProfile(data.user.id); fetchPosts(); }, 2000); }
     setLoading(false);
   }
 
@@ -116,59 +127,39 @@ export default function Home() {
     setLoading(true);
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) setMessage("Error: " + error.message);
-    else {
-      setUser(data.user);
-      fetchProfile(data.user.id);
-      fetchPosts();
-      fetchUserLikes(data.user.id);
-      fetchComments();
-      fetchFollowing(data.user.id);
-    }
+    else { setUser(data.user); fetchProfile(data.user.id); fetchPosts(); }
     setLoading(false);
   }
 
-  // NEW: Handle Avatar Upload
   async function handleAvatarUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
-    
     setLoading(true);
     const fileExt = file.name.split('.').pop();
     const filePath = `${user.id}/avatar.${fileExt}`;
     
     const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, file, { upsert: true });
-    
-    if (uploadError) {
-      setMessage("Error uploading avatar");
-      setLoading(false);
-      return;
-    }
+    if (uploadError) { setMessage("Error uploading avatar"); setLoading(false); return; }
 
     const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
-    const newAvatarUrl = data.publicUrl;
-
-    const { error: dbError } = await supabase.from("profiles").update({ avatar_url: newAvatarUrl }).eq("id", user.id);
+    await supabase.from("profiles").update({ avatar_url: data.publicUrl }).eq("id", user.id);
     
-    if (!dbError) {
-      setAvatarPreview(newAvatarUrl);
-      fetchProfile(user.id); // Refresh to show everywhere
-      setMessage(" Avatar updated!");
-    }
+    fetchProfile(user.id);
+    setMessage(" Avatar updated!");
     setLoading(false);
   }
 
   async function handleClaimCOI() {
     setLoading(true);
-    const { error } = await supabase.from("profiles").update({ is_coi: true, coi_claimed_at: new Date() }).eq("id", profile.id);
-    if (!error) { setMessage(" Successfully claimed the COI Badge!"); fetchProfile(profile.id); }
+    await supabase.from("profiles").update({ is_coi: true }).eq("id", profile.id);
+    fetchProfile(profile.id);
     setLoading(false);
   }
 
   async function handleUpdateProfile() {
     setLoading(true);
-    const { error } = await supabase.from("profiles").update({ full_name: editName, username: editUsername }).eq("id", profile.id);
-    if (!error) { setMessage(" Profile updated!"); fetchProfile(profile.id); fetchPosts(); setIsEditing(false); }
-    else { setMessage("Error: " + error.message); }
+    await supabase.from("profiles").update({ full_name: editName, username: editUsername }).eq("id", profile.id);
+    fetchProfile(profile.id); fetchPosts(); setIsEditing(false);
     setLoading(false);
   }
 
@@ -181,29 +172,22 @@ export default function Home() {
     if (!newPostContent.trim() && !selectedImage) return;
     setLoading(true);
     let imageUrl = null;
-
     if (selectedImage) {
       const fileExt = selectedImage.name.split('.').pop();
       const filePath = `${user.id}/${Date.now()}.${fileExt}`;
-      const { error: uploadError } = await supabase.storage.from('post-images').upload(filePath, selectedImage);
-      if (uploadError) { setMessage("Error uploading image"); setLoading(false); return; }
+      await supabase.storage.from('post-images').upload(filePath, selectedImage);
       const { data } = supabase.storage.from('post-images').getPublicUrl(filePath);
       imageUrl = data.publicUrl;
     }
-
-    const { error } = await supabase.from("posts").insert([{ user_id: user.id, content: newPostContent, image_url: imageUrl }]);
-    if (!error) { 
-      setNewPostContent(""); setSelectedImage(null); setImagePreview(null); 
-      document.getElementById('image-upload').value = ""; 
-      fetchPosts(); 
-    } else { setMessage("Error posting"); }
-    setLoading(false);
+    await supabase.from("posts").insert([{ user_id: user.id, content: newPostContent, image_url: imageUrl }]);
+    setNewPostContent(""); setSelectedImage(null); setImagePreview(null); 
+    fetchPosts(); setLoading(false);
   }
 
   async function handleDeletePost(postId) {
     if (!confirm("Delete this post?")) return;
-    const { error } = await supabase.from("posts").delete().eq("id", postId).eq("user_id", user.id);
-    if (!error) fetchPosts();
+    await supabase.from("posts").delete().eq("id", postId).eq("user_id", user.id);
+    fetchPosts();
   }
 
   async function handleToggleLike(postId, currentCount) {
@@ -212,8 +196,7 @@ export default function Home() {
     if (isLiked) await supabase.from("likes").delete().eq("user_id", user.id).eq("post_id", postId);
     else await supabase.from("likes").insert({ user_id: user.id, post_id: postId });
     await supabase.from("posts").update({ like_count: newCount }).eq("id", postId);
-    fetchPosts();
-    fetchUserLikes(user.id);
+    fetchPosts(); fetchUserLikes(user.id);
   }
 
   async function handleToggleFollow(targetUserId) {
@@ -226,18 +209,17 @@ export default function Home() {
   async function handleAddComment(postId) {
     const text = commentInputs[postId];
     if (!text || !text.trim()) return;
-    const { error } = await supabase.from("comments").insert([{ post_id: postId, user_id: user.id, content: text }]);
-    if (!error) { setCommentInputs({ ...commentInputs, [postId]: "" }); fetchComments(); }
+    await supabase.from("comments").insert([{ post_id: postId, user_id: user.id, content: text }]);
+    setCommentInputs({ ...commentInputs, [postId]: "" }); fetchComments();
   }
 
   async function handleSignOut() {
     await supabase.auth.signOut();
-    setUser(null); setProfile(null); setPosts([]); setUserLikes([]); setComments([]); setFollowingIds([]); setMessage("");
+    setUser(null); setProfile(null); setPosts([]); setUserLikes([]); setComments([]); setFollowingIds([]);
   }
 
   const filteredPosts = feedFilter === 'all' ? posts : posts.filter(post => followingIds.includes(post.user_id));
 
-  // Helper to get avatar image or fallback to letter
   const getAvatar = (profileData, sizeClass = "w-10 h-10") => {
     if (profileData?.avatar_url) {
       return <img src={profileData.avatar_url} className={`${sizeClass} rounded-full object-cover border-2 border-white dark:border-slate-700`} alt="Avatar" />;
@@ -252,14 +234,11 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-slate-50 dark:bg-slate-900 p-4 sm:p-8 transition-colors duration-300">
       <div className="max-w-2xl mx-auto space-y-6">
-        
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold bg-gradient-to-r from-orange-500 to-green-600 bg-clip-text text-transparent">Deshly</h1>
           <div className="flex items-center gap-4">
-            <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors text-xl">
-              {isDarkMode ? '☀️' : '🌙'}
-            </button>
-            {user && <button onClick={handleSignOut} className="text-sm text-slate-500 dark:text-slate-400 hover:text-red-600">Sign Out</button>}
+            <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-xl">{isDarkMode ? '☀️' : '🌙'}</button>
+            {user && <button onClick={handleSignOut} className="text-sm text-slate-500">Sign Out</button>}
           </div>
         </div>
 
@@ -267,39 +246,29 @@ export default function Home() {
           <div className="bg-white dark:bg-slate-800 p-8 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 space-y-4">
             <h2 className="text-xl font-bold text-slate-900 dark:text-white">{isLoginMode ? "Welcome Back!" : "Join the Community"}</h2>
             <div className="flex gap-2 bg-slate-100 dark:bg-slate-700 p-1 rounded-lg">
-              <button onClick={() => setIsLoginMode(false)} className={`flex-1 py-2 rounded-md text-sm font-medium transition-all ${!isLoginMode ? 'bg-white dark:bg-slate-600 shadow-sm text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}>Sign Up</button>
-              <button onClick={() => setIsLoginMode(true)} className={`flex-1 py-2 rounded-md text-sm font-medium transition-all ${isLoginMode ? 'bg-white dark:bg-slate-600 shadow-sm text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}>Log In</button>
+              <button onClick={() => setIsLoginMode(false)} className={`flex-1 py-2 rounded-md text-sm font-medium ${!isLoginMode ? 'bg-white dark:bg-slate-600 shadow-sm text-slate-900 dark:text-white' : 'text-slate-500'}`}>Sign Up</button>
+              <button onClick={() => setIsLoginMode(true)} className={`flex-1 py-2 rounded-md text-sm font-medium ${isLoginMode ? 'bg-white dark:bg-slate-600 shadow-sm text-slate-900 dark:text-white' : 'text-slate-500'}`}>Log In</button>
             </div>
             <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white" />
             <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full p-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white" />
-            <button onClick={isLoginMode ? handleLogin : handleSignUp} disabled={loading} className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-lg">
-              {loading ? "Processing..." : (isLoginMode ? "Log In" : "Sign Up")}
-            </button>
+            <button onClick={isLoginMode ? handleLogin : handleSignUp} disabled={loading} className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-lg">{loading ? "Processing..." : (isLoginMode ? "Log In" : "Sign Up")}</button>
           </div>
         ) : (
           <>
-            {/* PROFILE SECTION WITH AVATAR UPLOAD */}
+            {/* PROFILE CARD */}
             <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex gap-4 items-center">
-              <div className="relative group">
+              <div className="relative group cursor-pointer">
                 {getAvatar(profile, "w-16 h-16")}
-                {/* Hidden file input for avatar */}
-                <label className="absolute inset-0 flex items-center justify-center bg-black/50 text-white text-xs font-bold rounded-full opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity">
-                  Change
+                <label className="absolute inset-0 flex items-center justify-center bg-black/60 text-white text-[10px] font-bold rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                  CHANGE
                   <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
                 </label>
               </div>
-              
               <div className="flex-1">
-                <div className="flex items-center justify-between mb-1">
-                  <p className="font-bold text-slate-900 dark:text-white text-lg">{profile?.full_name || "New User"}</p>
-                  {profile?.is_coi && <span className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white bg-gradient-to-r from-orange-500 to-green-600">COI</span>}
-                </div>
-                <p className="text-sm text-slate-500 dark:text-slate-400">@{profile?.username || "user"}</p>
+                <p className="font-bold text-slate-900 dark:text-white text-lg">{profile?.full_name}</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">@{profile?.username}</p>
               </div>
-              
-              <button onClick={() => setIsEditing(!isEditing)} className="text-sm text-blue-600 dark:text-blue-400 font-medium">
-                {isEditing ? "Cancel" : "Edit"}
-              </button>
+              <button onClick={() => setIsEditing(!isEditing)} className="text-sm text-blue-600 dark:text-blue-400 font-medium">{isEditing ? "Cancel" : "Edit"}</button>
             </div>
 
             {isEditing && (
@@ -309,6 +278,35 @@ export default function Home() {
                 <button onClick={handleUpdateProfile} disabled={loading} className="w-full bg-slate-900 dark:bg-white dark:text-slate-900 text-white py-2 rounded-lg font-medium">Save Changes</button>
               </div>
             )}
+
+            {/* NEW: SEARCH BAR */}
+            <div className="relative">
+              <input 
+                type="text" 
+                placeholder="Search for friends by username..." 
+                value={searchQuery}
+                onChange={handleSearch}
+                className="w-full p-3 border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+              />
+              {showSearch && searchResults.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg z-10 max-h-64 overflow-y-auto">
+                  {searchResults.map((result) => (
+                    <Link 
+                      key={result.id} 
+                      href={`/profile/${result.username}`}
+                      onClick={() => { setShowSearch(false); setSearchQuery(""); }}
+                      className="flex items-center gap-3 p-3 hover:bg-slate-50 dark:hover:bg-slate-700 border-b border-slate-100 dark:border-slate-700 last:border-0"
+                    >
+                      {getAvatar(result, "w-8 h-8")}
+                      <div>
+                        <p className="font-semibold text-slate-900 dark:text-white text-sm">{result.full_name}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">@{result.username}</p>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {/* POST CREATOR */}
             <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700">
@@ -350,12 +348,13 @@ export default function Home() {
                         {getAvatar(post.profiles)}
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="font-bold text-slate-900 dark:text-white">{post.profiles?.full_name || "Anonymous"}</span>
+                            <Link href={`/profile/${post.profiles?.username}`} className="font-bold text-slate-900 dark:text-white hover:text-orange-500 transition-colors">
+                              {post.profiles?.full_name || "Anonymous"}
+                            </Link>
                             {post.profiles?.is_coi && <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold text-white bg-gradient-to-r from-orange-500 to-green-600">COI</span>}
                           </div>
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-slate-500 dark:text-slate-400">@{post.profiles?.username}</span>
-                            {/* NEW: Time Ago Timestamp */}
                             <span className="text-xs text-slate-400 dark:text-slate-500">• {timeAgo(post.created_at)}</span>
                           </div>
                         </div>
@@ -381,7 +380,6 @@ export default function Home() {
                         {post.like_count || 0}
                       </button>
                       <span className="text-sm text-slate-500 dark:text-slate-400">{postComments.length} comments</span>
-                      
                       {!isAuthor && (
                         <button onClick={() => handleToggleFollow(post.user_id)} className={`ml-auto px-3 py-1 rounded-full text-xs font-bold border ${isFollowing ? 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600' : 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800'}`}>
                           {isFollowing ? 'Following' : 'Follow'}
@@ -389,7 +387,6 @@ export default function Home() {
                       )}
                     </div>
 
-                    {/* COMMENTS */}
                     <div className="mt-4 space-y-3">
                       {postComments.map((comment) => (
                         <div key={comment.id} className="flex gap-2 text-sm items-start">
