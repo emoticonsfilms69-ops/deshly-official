@@ -9,7 +9,7 @@ export default function Home() {
   const [posts, setPosts] = useState([]);
   const [comments, setComments] = useState([]);
   const [userLikes, setUserLikes] = useState([]);
-  const [followingIds, setFollowingIds] = useState([]); // NEW: Track who we follow
+  const [followingIds, setFollowingIds] = useState([]);
   
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -24,9 +24,10 @@ export default function Home() {
   const [editName, setEditName] = useState("");
   const [editUsername, setEditUsername] = useState("");
   const [commentInputs, setCommentInputs] = useState({}); 
-
-  // NEW: Feed filter state ('all' or 'following')
   const [feedFilter, setFeedFilter] = useState("all"); 
+
+  // NEW: Toggle between Login and Sign Up
+  const [isLoginMode, setIsLoginMode] = useState(false); 
 
   useEffect(() => { checkUser(); }, []);
   useEffect(() => {
@@ -41,7 +42,7 @@ export default function Home() {
       fetchPosts();
       fetchUserLikes(user.id);
       fetchComments();
-      fetchFollowing(user.id); // NEW: Fetch who we follow
+      fetchFollowing(user.id);
     }
   }
 
@@ -65,7 +66,6 @@ export default function Home() {
     if (data) setComments(data);
   }
 
-  // NEW: Fetch following list
   async function fetchFollowing(userId) {
     const { data } = await supabase.from("follows").select("following_id").eq("follower_id", userId);
     if (data) setFollowingIds(data.map(f => f.following_id));
@@ -78,6 +78,22 @@ export default function Home() {
     else {
       setUser(data.user);
       setTimeout(() => { fetchProfile(data.user.id); fetchPosts(); fetchUserLikes(data.user.id); fetchComments(); fetchFollowing(data.user.id); }, 2000); 
+    }
+    setLoading(false);
+  }
+
+  // NEW: Handle Log In
+  async function handleLogin() {
+    setLoading(true);
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) setMessage("Error: " + error.message);
+    else {
+      setUser(data.user);
+      fetchProfile(data.user.id);
+      fetchPosts();
+      fetchUserLikes(data.user.id);
+      fetchComments();
+      fetchFollowing(data.user.id);
     }
     setLoading(false);
   }
@@ -142,17 +158,14 @@ export default function Home() {
     fetchUserLikes(user.id);
   }
 
-  // NEW: Follow / Unfollow logic
   async function handleToggleFollow(targetUserId) {
     const isFollowing = followingIds.includes(targetUserId);
-    
     if (isFollowing) {
       await supabase.from("follows").delete().eq("follower_id", user.id).eq("following_id", targetUserId);
     } else {
       await supabase.from("follows").insert({ follower_id: user.id, following_id: targetUserId });
     }
-    
-    fetchFollowing(user.id); // Refresh the list
+    fetchFollowing(user.id);
   }
 
   async function handleAddComment(postId) {
@@ -170,10 +183,7 @@ export default function Home() {
     setUser(null); setProfile(null); setPosts([]); setUserLikes([]); setComments([]); setFollowingIds([]); setMessage("");
   }
 
-  // NEW: Filter posts based on 'all' or 'following'
-  const filteredPosts = feedFilter === 'all' 
-    ? posts 
-    : posts.filter(post => followingIds.includes(post.user_id));
+  const filteredPosts = feedFilter === 'all' ? posts : posts.filter(post => followingIds.includes(post.user_id));
 
   return (
     <main className="min-h-screen bg-slate-50 p-4 sm:p-8">
@@ -186,10 +196,20 @@ export default function Home() {
 
         {!user ? (
           <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 space-y-4">
-            <h2 className="text-xl font-bold text-slate-800">Join the Community</h2>
+            <h2 className="text-xl font-bold text-slate-800">{isLoginMode ? "Welcome Back!" : "Join the Community"}</h2>
+            
+            {/* NEW: Toggle Switch */}
+            <div className="flex gap-2 bg-slate-100 p-1 rounded-lg">
+              <button onClick={() => setIsLoginMode(false)} className={`flex-1 py-2 rounded-md text-sm font-medium transition-all ${!isLoginMode ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500'}`}>Sign Up</button>
+              <button onClick={() => setIsLoginMode(true)} className={`flex-1 py-2 rounded-md text-sm font-medium transition-all ${isLoginMode ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500'}`}>Log In</button>
+            </div>
+
             <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg" />
             <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg" />
-            <button onClick={handleSignUp} disabled={loading} className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-lg">{loading ? "Signing up..." : "Sign Up"}</button>
+            
+            <button onClick={isLoginMode ? handleLogin : handleSignUp} disabled={loading} className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-lg">
+              {loading ? "Processing..." : (isLoginMode ? "Log In" : "Sign Up")}
+            </button>
           </div>
         ) : (
           <>
@@ -242,20 +262,10 @@ export default function Home() {
               </div>
             </div>
 
-            {/* NEW: FEED FILTER TOGGLE */}
+            {/* FEED FILTER */}
             <div className="flex gap-2 bg-white p-1 rounded-xl border border-slate-200 w-fit mx-auto">
-              <button 
-                onClick={() => setFeedFilter('all')}
-                className={`px-6 py-2 rounded-lg text-sm font-medium transition-colors ${feedFilter === 'all' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
-              >
-                All Posts
-              </button>
-              <button 
-                onClick={() => setFeedFilter('following')}
-                className={`px-6 py-2 rounded-lg text-sm font-medium transition-colors ${feedFilter === 'following' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
-              >
-                Following
-              </button>
+              <button onClick={() => setFeedFilter('all')} className={`px-6 py-2 rounded-lg text-sm font-medium transition-colors ${feedFilter === 'all' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>All Posts</button>
+              <button onClick={() => setFeedFilter('following')} className={`px-6 py-2 rounded-lg text-sm font-medium transition-colors ${feedFilter === 'following' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Following</button>
             </div>
 
             {/* THE FEED */}
@@ -277,17 +287,8 @@ export default function Home() {
                           <div className="flex items-center gap-2">
                             <span className="font-semibold text-slate-800">{post.profiles?.full_name || "Anonymous"}</span>
                             {post.profiles?.is_coi && <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold text-white bg-gradient-to-r from-orange-500 to-green-600">COI</span>}
-                            
-                            {/* NEW: Follow Button (Only shows if it's not your own post) */}
                             {!isAuthor && (
-                              <button 
-                                onClick={() => handleToggleFollow(post.user_id)}
-                                className={`ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold border transition-colors ${
-                                  isFollowing 
-                                    ? 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200' 
-                                    : 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100'
-                                }`}
-                              >
+                              <button onClick={() => handleToggleFollow(post.user_id)} className={`ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold border transition-colors ${isFollowing ? 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200' : 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100'}`}>
                                 {isFollowing ? 'Following' : 'Follow'}
                               </button>
                             )}
@@ -301,23 +302,15 @@ export default function Home() {
                         </button>
                       )}
                     </div>
-                    
                     <p className="text-slate-700 leading-relaxed mb-3 whitespace-pre-wrap">{post.content}</p>
-                    
                     {post.image_url && (
                       <div className="mb-3 rounded-xl overflow-hidden border border-slate-100">
                         <img src={post.image_url} alt="Post" className="w-full h-auto object-cover max-h-96" />
                       </div>
                     )}
-                    
                     <div className="flex items-center gap-4 pt-3 border-t border-slate-100">
-                      <button 
-                        onClick={() => handleToggleLike(post.id, post.like_count || 0)}
-                        className={`flex items-center gap-1.5 text-sm font-medium transition-colors ${isLiked ? 'text-red-500' : 'text-slate-500 hover:text-red-500'}`}
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill={isLiked ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                        </svg>
+                      <button onClick={() => handleToggleLike(post.id, post.like_count || 0)} className={`flex items-center gap-1.5 text-sm font-medium transition-colors ${isLiked ? 'text-red-500' : 'text-slate-500 hover:text-red-500'}`}>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill={isLiked ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>
                         {post.like_count || 0}
                       </button>
                       <span className="text-sm text-slate-500 flex items-center gap-1.5">
@@ -325,7 +318,6 @@ export default function Home() {
                         {postComments.length}
                       </span>
                     </div>
-
                     <div className="mt-4 space-y-3">
                       {postComments.map((comment) => (
                         <div key={comment.id} className="flex gap-2 text-sm">
@@ -333,16 +325,8 @@ export default function Home() {
                           <span className="text-slate-600">{comment.content}</span>
                         </div>
                       ))}
-                      
                       <div className="flex gap-2 pt-2 border-t border-slate-50">
-                        <input 
-                          type="text" 
-                          placeholder="Write a comment..." 
-                          value={commentInputs[post.id] || ""}
-                          onChange={(e) => setCommentInputs({ ...commentInputs, [post.id]: e.target.value })}
-                          onKeyDown={(e) => e.key === 'Enter' && handleAddComment(post.id)}
-                          className="flex-1 p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-orange-500"
-                        />
+                        <input type="text" placeholder="Write a comment..." value={commentInputs[post.id] || ""} onChange={(e) => setCommentInputs({ ...commentInputs, [post.id]: e.target.value })} onKeyDown={(e) => e.key === 'Enter' && handleAddComment(post.id)} className="flex-1 p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-orange-500" />
                         <button onClick={() => handleAddComment(post.id)} className="text-orange-600 font-semibold text-sm hover:text-orange-700">Post</button>
                       </div>
                     </div>
