@@ -78,9 +78,21 @@ export default function Home() {
     if (data) setProfile(data);
   }
 
-  async function fetchPosts() {
-    const { data } = await supabase.from("posts").select("*, profiles(full_name, username, is_coi, avatar_url)").order("created_at", { ascending: false });
-    if (data) setPosts(data);
+   async function fetchPosts() {
+    // Fetch posts and count likes directly from the likes table
+    const { data } = await supabase
+      .from("posts")
+      .select("*, profiles(full_name, username, is_coi, avatar_url), likes(count)")
+      .order("created_at", { ascending: false });
+      
+    if (data) {
+      // Clean up the data so like_count is a simple number
+      const formattedData = data.map(post => ({
+        ...post,
+        like_count: post.likes[0]?.count || 0
+      }));
+      setPosts(formattedData);
+    }
   }
 
   async function fetchUserLikes(userId) {
