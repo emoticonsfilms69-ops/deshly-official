@@ -202,13 +202,18 @@ export default function Home() {
     fetchPosts();
   }
 
-  async function handleToggleLike(postId, currentCount) {
+   async function handleToggleLike(postId) {
     const isLiked = userLikes.includes(postId);
-    let newCount = isLiked ? currentCount - 1 : currentCount + 1;
-    if (isLiked) await supabase.from("likes").delete().eq("user_id", user.id).eq("post_id", postId);
-    else await supabase.from("likes").insert({ user_id: user.id, post_id: postId });
-    await supabase.from("posts").update({ like_count: newCount }).eq("id", postId);
-    fetchPosts(); fetchUserLikes(user.id);
+    
+    if (isLiked) {
+      await supabase.from("likes").delete().eq("user_id", user.id).eq("post_id", postId);
+    } else {
+      await supabase.from("likes").insert({ user_id: user.id, post_id: postId });
+    }
+    
+    // Refresh the posts and likes to show the new count
+    fetchPosts(); 
+    fetchUserLikes(user.id);
   }
 
   async function handleToggleFollow(targetUserId) {
