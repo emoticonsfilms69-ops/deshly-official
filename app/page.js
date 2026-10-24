@@ -32,7 +32,9 @@ export default function Home() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
-  const [showSearch, setShowSearch] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);const [notifications, setNotifications] = useState([]);
+const [showNotifications, setShowNotifications] = useState(false);
+const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => { checkUser(); }, []);
   useEffect(() => {
@@ -47,11 +49,18 @@ export default function Home() {
   }
 }, [profile]);
 
-  async function checkUser() {
-    const { data: { user } } = await supabase.auth.getUser();
-    setUser(user);
-    if (user) { fetchProfile(user.id); fetchPosts(); fetchUserLikes(user.id); fetchComments(); fetchFollowing(user.id); }
+ async function checkUser() {
+  const { data: { user } } = await supabase.auth.getUser();
+  setUser(user);
+  if (user) {
+    fetchProfile(user.id);
+    fetchPosts();
+    fetchUserLikes(user.id);
+    fetchComments();
+    fetchFollowing(user.id);
+    fetchNotifications(); // Add this line
   }
+}
   async function fetchProfile(userId) {
     const { data } = await supabase.from("profiles").select("*").eq("id", userId).single();
     if (data) setProfile(data);
@@ -145,23 +154,75 @@ export default function Home() {
     fetchPosts();
   }
   async function handleToggleLike(postId) {
-    const isLiked = userLikes.includes(postId);
-    if (isLiked) await supabase.from("likes").delete().eq("user_id", user.id).eq("post_id", postId);
-    else await supabase.from("likes").insert({ user_id: user.id, post_id: postId });
-    fetchPosts(); fetchUserLikes(user.id);
+  const post = posts.find(p => p.id === postId);
+  if (!post) return;
+  
+  const isLiked = userLikes.includes(postId);
+  if (isLiked) {
+    await supabase.from("likes").delete().eq("user_id", user.id).eq("post_id", postId);
+  } else {
+    await supabase.from("likes").insert({ user_id: user.id, post_id: postId });
+    // Create notification for post author
+    await createNotification(post.user_id, 'like', user.id, postId);
   }
+  fetchPosts(); 
+  fetchUserLikes(user.id);
+}
   async function handleToggleFollow(targetUserId) {
-    const isFollowing = followingIds.includes(targetUserId);
-    if (isFollowing) await supabase.from("follows").delete().eq("follower_id", user.id).eq("following_id", targetUserId);
-    else await supabase.from("follows").insert({ follower_id: user.id, following_id: targetUserId });
-    fetchFollowing(user.id);
+  const isFollowing = followingIds.includes(targetUserId);
+  if (isFollowing) {
+    await supabase.from("follows").delete().eq("follower_id", user.id).eq("following_id", targetUserId);
+  } else {
+    await supabase.from("follows").insert({ follower_id: user.id, following_id: targetUserId });
+    // Create notification for the user being followed
+    await createNotification(targetUserId, 'follow', user.id);
   }
+  fetchFollowing(user.id);
+}
   async function handleAddComment(postId) {
-    const text = commentInputs[postId];
-    if (!text || !text.trim()) return;
+  const text = commentInputs[postId];
+  if (!text || !text.trim()) return;
+  
+  const post = posts.find(p => p.id === postId);
+  if (post) {
     await supabase.from("comments").insert([{ post_id: postId, user_id: user.id, content: text }]);
-    setCommentInputs({ ...commentInputs, [postId]: "" }); fetchComments();
+    // Create notification for post author
+    await createNotification(post.user_id, 'comment', user.id, postId);
+    setCommentInputs({ ...commentInputs, [postId]: "" });
+    fetchComments();
   }
+}
+  async function fetchNotifications() {
+  if (!user) return;
+  const { data } = await supabase
+    .from("notifications")
+    .select("*, from_user:profiles!notifications_from_user_id_fkey(full_name, username, avatar_url)")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(20);
+  if (data) {
+    setNotifications(data);
+    setUnreadCount(data.filter(n => !n.is_read).length);
+  }
+}
+
+async function markAsRead(notificationId) {
+  await supabase.from("notifications").update({ is_read: true }).eq("id", notificationId);
+  fetchNotifications();
+}
+
+// Function to create a notification
+async function createNotification(targetUserId, type, fromUserId, postId = null) {
+  if (targetUserId === fromUserId) return; // Don't notify yourself
+  
+  await supabase.from("notifications").insert({
+    user_id: targetUserId,
+    from_user_id: fromUserId,
+    type: type,
+    post_id: postId,
+    is_read: false
+  });
+}
   async function handleSignOut() {
     await supabase.auth.signOut();
     setUser(null); setProfile(null); setPosts([]); setUserLikes([]); setComments([]); setFollowingIds([]);
