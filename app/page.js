@@ -103,13 +103,29 @@ export default function Home() {
     fetchProfile(profile.id); fetchPosts(); setIsEditing(false); setLoading(false);
   }
   function handleImageChange(e) { const file = e.target.files[0]; if (file) { setSelectedImage(file); setImagePreview(URL.createObjectURL(file)); } }
-  async function handleCreatePost() {
-    if (!newPostContent.trim() && !selectedImage) return; setLoading(true); let imageUrl = null;
+   async function handleCreatePost() {
+    if (!newPostContent.trim() && !selectedImage) return; 
+    setLoading(true); 
+    let imageUrl = null; 
+    let videoUrl = null;
+
     if (selectedImage) {
-      const fileExt = selectedImage.name.split('.').pop(); const filePath = `${user.id}/${Date.now()}.${fileExt}`;
-      await supabase.storage.from('post-images').upload(filePath, selectedImage);
-      const { data } = supabase.storage.from('post-images').getPublicUrl(filePath); imageUrl = data.publicUrl;
+      const fileExt = selectedImage.name.split('.').pop();
+      const isVideo = selectedImage.type.startsWith('video/');
+      const bucketName = isVideo ? 'post-videos' : 'post-images';
+      const filePath = `${user.id}/${Date.now()}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage.from(bucketName).upload(filePath, selectedImage);
+      if (uploadError) { setMessage("Error uploading media"); setLoading(false); return; }
+      
+      const { data } = supabase.storage.from(bucketName).getPublicUrl(filePath);
+      if (isVideo) videoUrl = data.publicUrl;
+      else imageUrl = data.publicUrl;
     }
+
+    await supabase.from("posts").insert([{ user_id: user.id, content: newPostContent, image_url: imageUrl, video_url: videoUrl }]);
+    setNewPostContent(""); setSelectedImage(null); setImagePreview(null); fetchPosts(); setLoading(false);
+  }
     await supabase.from("posts").insert([{ user_id: user.id, content: newPostContent, image_url: imageUrl }]);
     setNewPostContent(""); setSelectedImage(null); setImagePreview(null); fetchPosts(); setLoading(false);
   }
@@ -212,7 +228,7 @@ export default function Home() {
         ) : (
           <>
             <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800 flex gap-3 sm:gap-4 items-center">
-              <div className="relative group cursor-pointer">{getAvatar(profile, "w-12 h-12 sm:w-14 sm:h-14")}<label className="absolute inset-0 flex items-center justify-center bg-black/60 text-white text-[10px] font-bold rounded-full opacity-0 group-hover:opacity-100 transition-opacity">EDIT<input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" /></label></div>
+              <div className="relative group cursor-pointer">{getAvatar(profile, "w-12 h-12 sm:w-14 sm:h-14")}<label className="absolute inset-0 flex items-center justify-center bg-black/60 text-white text-[10px] font-bold rounded-full opacity-0 group-hover:opacity-100 transition-opacity">EDIT<input type="file" accept="image/*,video/*" onChange={handleAvatarUpload} className="hidden" /></label></div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2"><p className="font-bold text-slate-900 dark:text-white text-base sm:text-lg truncate">{profile?.full_name}</p>{profile?.is_coi && <span className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white bg-gradient-to-r from-orange-500 to-green-600 shrink-0">COI</span>}</div>
                 <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 truncate">@{profile?.username}</p>
@@ -246,7 +262,7 @@ export default function Home() {
                   <textarea value={newPostContent} onChange={(e) => setNewPostContent(e.target.value)} placeholder="What's happening?" className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none resize-none h-24 text-slate-900 dark:text-white"></textarea>
                   {imagePreview && <div className="mt-3 relative rounded-xl overflow-hidden"><img src={imagePreview} alt="Preview" className="w-full h-48 object-cover" /><button onClick={() => { setImagePreview(null); setSelectedImage(null); }} className="absolute top-2 right-2 bg-black/70 text-white rounded-full p-1.5">✕</button></div>}
                   <div className="flex justify-between items-center mt-4">
-                    <label className="cursor-pointer flex items-center gap-2 text-orange-500 font-medium text-sm">📷 Photo<input id="image-upload" type="file" accept="image/*" onChange={handleImageChange} className="hidden" /></label>
+                    <label className="cursor-pointer flex items-center gap-2 text-orange-500 font-medium text-sm">📷 Photo<input id="image-upload" type="file" accept="image/*,video/*" onChange={handleImageChange} className="hidden" /></label>
                     <button onClick={handleCreatePost} disabled={loading} className="bg-gradient-to-r from-orange-500 to-green-600 text-white px-6 py-2 rounded-full font-bold text-sm">{loading ? "Posting..." : "Post"}</button>
                   </div>
                 </div>
@@ -282,6 +298,11 @@ export default function Home() {
                     </div>
                     <p className="text-slate-800 dark:text-slate-200 leading-relaxed mb-4 whitespace-pre-wrap text-sm sm:text-[15px]">{post.content}</p>
                     {post.image_url && <div className="mb-4 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800"><img src={post.image_url} alt="Post" className="w-full h-auto object-cover max-h-[500px]" /></div>}
+                                          {post.video_url && (
+                      <div className="mb-4 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-black">
+                        <video src={post.video_url} controls className="w-full h-auto max-h-[500px]" />
+                      </div>
+                    )}
                     <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
                       <button onClick={() => handleToggleLike(post.id)} className={`flex items-center gap-2 text-sm font-medium ${isLiked ? 'text-red-500' : 'text-slate-500 dark:text-slate-400'}`}>❤️ {post.like_count || 0}</button>
                       <span className="text-sm text-slate-500">💬 {postComments.length}</span>
