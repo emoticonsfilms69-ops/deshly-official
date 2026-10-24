@@ -19,7 +19,13 @@ export default function Home() {
   const [imagePreview, setImagePreview] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState("");
-  const [editUsername, setEditUsername] = useState("");
+  const [editUsername, setEditUsername] = useState("");const [editBio, setEditBio] = useState("");
+  <textarea
+  placeholder="Write a short bio..."
+  value={editBio}
+  onChange={(e) => setEditBio(e.target.value)}
+  className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white outline-none h-20 resize-none"
+/>
   const [commentInputs, setCommentInputs] = useState({});
   const [feedFilter, setFeedFilter] = useState("all");
   const [isLoginMode, setIsLoginMode] = useState(false);
@@ -33,9 +39,13 @@ export default function Home() {
     if (isDarkMode) document.documentElement.classList.add('dark');
     else document.documentElement.classList.remove('dark');
   }, [isDarkMode]);
-  useEffect(() => {
-    if (profile) { setEditName(profile.full_name || ""); setEditUsername(profile.username || ""); }
-  }, [profile]);
+ useEffect(() => {
+  if (profile) {
+    setEditName(profile.full_name || "");
+    setEditUsername(profile.username || "");
+    setEditBio(profile.bio || ""); // Add this line
+  }
+}, [profile]);
 
   async function checkUser() {
     const { data: { user } } = await supabase.auth.getUser();
