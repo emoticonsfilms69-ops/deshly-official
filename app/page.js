@@ -167,7 +167,12 @@ export default function Home() {
     setUser(null); setProfile(null); setPosts([]); setUserLikes([]); setComments([]); setFollowingIds([]);
   }
 
-  const filteredPosts = feedFilter === 'all' ? posts : posts.filter(post => followingIds.includes(post.user_id));
+   let displayPosts = posts;
+  if (feedFilter === 'following') {
+    displayPosts = posts.filter(post => followingIds.includes(post.user_id));
+  } else if (feedFilter === 'trending') {
+    displayPosts = [...posts].sort((a, b) => b.like_count - a.like_count);
+  }
   const getAvatar = (p, s = "w-10 h-10") => p?.avatar_url
     ? <img src={p.avatar_url} className={`${s} rounded-full object-cover border-2 border-white dark:border-slate-800 shadow-sm`} alt="Avatar" />
     : <div className={`${s} rounded-full flex items-center justify-center font-bold text-white bg-gradient-to-br from-orange-500 to-green-600 border-2 border-white dark:border-slate-800 shadow-sm`}>{p?.full_name?.[0] || "U"}</div>;
@@ -194,7 +199,7 @@ export default function Home() {
         </div>
       </header>
 
-      <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+      <div className="max-w-2xl mx-auto px-4 py-6 pb-24 space-y-6">
         {!user ? (
           <div className="relative overflow-hidden rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 mt-10">
             <div className="relative h-64 sm:h-80">
@@ -263,12 +268,13 @@ export default function Home() {
             </div>
 
             <div className="flex gap-2 bg-white dark:bg-slate-900 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-800 w-fit mx-auto">
-              <button onClick={() => setFeedFilter('all')} className={`px-8 py-2 rounded-xl text-sm font-bold ${feedFilter === 'all' ? 'bg-slate-900 dark:bg-white dark:text-slate-900 text-white' : 'text-slate-500'}`}>For You</button>
-              <button onClick={() => setFeedFilter('following')} className={`px-8 py-2 rounded-xl text-sm font-bold ${feedFilter === 'following' ? 'bg-slate-900 dark:bg-white dark:text-slate-900 text-white' : 'text-slate-500'}`}>Following</button>
+              <button onClick={() => setFeedFilter('all')} className={`flex-1 py-2 rounded-xl text-sm font-bold ${feedFilter === 'all' ? 'bg-slate-900 dark:bg-white dark:text-slate-900 text-white' : 'text-slate-500'}`}>For You</button>
+              <button onClick={() => setFeedFilter('following')} className={`flex-1 py-2 rounded-xl text-sm font-bold ${feedFilter === 'following' ? 'bg-slate-900 dark:bg-white dark:text-slate-900 text-white' : 'text-slate-500'}`}>Following</button>
+              <button onClick={() => setFeedFilter('trending')} className={`flex-1 py-2 rounded-xl text-sm font-bold ${feedFilter === 'trending' ? 'bg-slate-900 dark:bg-white dark:text-slate-900 text-white' : 'text-slate-500'}`}>Trending 🔥</button>
             </div>
 
             <div className="space-y-4">
-              {filteredPosts.map((post) => {
+              {displayPosts.map((post) => {
                 const isLiked = userLikes.includes(post.id);
                 const postComments = comments.filter(c => c.post_id === post.id);
                 const isAuthor = post.user_id === user.id;
@@ -304,12 +310,29 @@ export default function Home() {
                   </div>
                 );
               })}
-              {filteredPosts.length === 0 && <div className="text-center text-slate-500 dark:text-slate-400 py-16"><p className="font-medium">No posts yet.</p></div>}
+              {displayPosts.length === 0 && <div className="text-center text-slate-500 dark:text-slate-400 py-16"><p className="font-medium">No posts yet.</p></div>}
             </div>
           </>
         )}
         {message && <div className="fixed bottom-6 right-6 bg-slate-900 dark:bg-white dark:text-slate-900 text-white px-5 py-3 rounded-xl shadow-2xl font-medium z-50">{message}</div>}
       </div>
-    </main>
+          {/* MOBILE BOTTOM NAVIGATION */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800 pb-safe z-40">
+        <div className="max-w-2xl mx-auto flex justify-around py-3">
+          <button onClick={() => setFeedFilter('all')} className={`flex flex-col items-center gap-1 ${feedFilter === 'all' ? 'text-orange-500' : 'text-slate-400'}`}>
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
+            <span className="text-[10px] font-bold">Home</span>
+          </button>
+          <button onClick={() => setFeedFilter('trending')} className={`flex flex-col items-center gap-1 ${feedFilter === 'trending' ? 'text-orange-500' : 'text-slate-400'}`}>
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" /><path strokeLinecap="round" strokeLinejoin="round" d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z" /></svg>
+            <span className="text-[10px] font-bold">Trending</span>
+          </button>
+          <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="flex flex-col items-center gap-1 text-slate-400">
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+            <span className="text-[10px] font-bold">Profile</span>
+          </button>
+        </div>
+      </nav>
+          </main>
   );
 }
