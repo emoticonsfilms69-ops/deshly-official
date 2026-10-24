@@ -12,7 +12,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en"><link rel="icon" href="/logo.png" />
       <body>{children}</body>
     </html>
   );
