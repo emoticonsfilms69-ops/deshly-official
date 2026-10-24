@@ -85,10 +85,9 @@ export default function ProfilePage() {
       <div className="max-w-2xl mx-auto space-y-6">
         <Link href="/" className="text-sm text-blue-600 hover:underline">← Back to Feed</Link>
         
-        <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center text-center">
-          {getAvatar(profile, "w-24 h-24")}
-          <h1 className="mt-4 text-2xl font-bold text-slate-900">{profile.full_name}</h1>
-          <p className="text-slate-500">@{profile.username}</p>
+        <Link href="/">
+  <img src="/logo.png" alt="Deshly" className="h-8 w-auto" />
+</Link>
           
           {profile.is_coi && (
             <span className="mt-2 px-3 py-1 rounded-full text-xs font-bold text-white bg-gradient-to-r from-orange-500 to-green-600">COI Member</span>
