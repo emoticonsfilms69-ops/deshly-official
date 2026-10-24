@@ -46,6 +46,18 @@ const [unreadCount, setUnreadCount] = useState(0);
     setEditName(profile.full_name || "");
     setEditUsername(profile.username || "");
     setEditBio(profile.bio || ""); // Add this line
+      // Close notifications when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (!event.target.closest('.notifications-container')) {
+        setShowNotifications(false);
+      }
+    }
+    if (showNotifications) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showNotifications]);
   }
 }, [profile]);
 
@@ -254,7 +266,66 @@ async function createNotification(targetUserId, type, fromUserId, postId = null)
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
           <Link href="/"><img src="/logo.png" alt="Deshly" className="h-10 w-auto" /></Link>
           <div className="flex items-center gap-3">
-            <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-lg">{isDarkMode ? '☀️' : '🌙'}</button>
+            <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-lg">{isDarkMode ? '☀️' : '🌙'}</button>            {/* NOTIFICATION BELL */}
+            <div className="relative">
+              <button onClick={() => setShowNotifications(!showNotifications)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors relative">
+                <svg className="w-6 h-6 text-slate-600 dark:text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+                {unreadCount > 0 && (
+                  <span className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
+              
+              {/* NOTIFICATIONS DROPDOWN */}
+              {showNotifications && (
+                <div className="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl z-50 max-h-96 overflow-y-auto">notifications-container"
+                  <div className="p-4 border-b border-slate-200 dark:border-slate-800">
+                    <h3 className="font-bold text-slate-900 dark:text-white">Notifications</h3>
+                  </div>
+                  {notifications.length === 0 ? (
+                    <div className="p-8 text-center text-slate-500 dark:text-slate-400">
+                      <p className="text-2xl mb-2">🔔</p>
+                      <p className="text-sm">No notifications yet</p>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {notifications.map((notif) => (
+                        <div 
+                          key={notif.id} 
+                          onClick={() => markAsRead(notif.id)}
+                          className={`p-4 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer transition-colors ${!notif.is_read ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}
+                        >
+                          <div className="flex items-start gap-3">
+                            {notif.from_user?.avatar_url ? (
+                              <img src={notif.from_user.avatar_url} className="w-10 h-10 rounded-full object-cover" alt="User" />
+                            ) : (
+                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-500 to-green-600 flex items-center justify-center text-white font-bold text-sm">
+                                {notif.from_user?.full_name?.[0] || '?'}
+                              </div>
+                            )}
+                            <div className="flex-1">
+                              <p className="text-sm text-slate-900 dark:text-white">
+                                <span className="font-bold">{notif.from_user?.full_name || 'Someone'}</span>
+                                {notif.type === 'like' && ' liked your post'}
+                                {notif.type === 'comment' && ' commented on your post'}
+                                {notif.type === 'follow' && ' started following you'}
+                              </p>
+                              <p className="text-xs text-slate-500 mt-1">
+                                {timeAgo(notif.created_at)}
+                              </p>
+                            </div>
+                            {!notif.is_read && <div className="w-2 h-2 bg-blue-500 rounded-full"></div>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
             {user && <div className="relative group">{getAvatar(profile, "w-8 h-8")}<button onClick={handleSignOut} className="absolute right-0 top-full mt-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg p-2 text-xs text-red-500 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">Sign Out</button></div>}
           </div>
         </div>
