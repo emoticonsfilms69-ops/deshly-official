@@ -256,7 +256,10 @@ export default function Home() {
             <div className="flex gap-2 bg-white dark:bg-slate-900 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-800 w-fit mx-auto">
               <button onClick={() => setFeedFilter('all')} className={`flex-1 sm:flex-none px-4 sm:px-8 py-2 rounded-xl text-xs sm:text-sm font-bold ${feedFilter === 'all' ? 'bg-slate-900 dark:bg-white dark:text-slate-900 text-white' : 'text-slate-500'}`}>For You</button>
               <button onClick={() => setFeedFilter('following')} className={`flex-1 sm:flex-none px-4 sm:px-8 py-2 rounded-xl text-xs sm:text-sm font-bold ${feedFilter === 'following' ? 'bg-slate-900 dark:bg-white dark:text-slate-900 text-white' : 'text-slate-500'}`}>Following</button>
-              <button onClick={() => setFeedFilter('trending')} className={`flex-1 sm:flex-none px-4 sm:px-8 py-2 rounded-xl text-xs sm:text-sm font-bold ${feedFilter === 'trending' ? 'bg-slate-900 dark:bg-white dark:text-slate-900 text-white' : 'text-slate-500'}`}>Trending 🔥</button>
+              <button onClick={() => setFeedFilter('trending')} className={`flex-1 sm:flex-none px-4 sm:px-8 py-2 rounded-xl text-xs sm:text-sm font-bold ${feedFilter === 'trending' ? 'bg-slate-900 dark:bg-white dark:text-slate-900 text-white' : 'text-slate-500'}`}>Trending 🔥</button>          <Link href="/messages" className="flex flex-col items-center gap-1 text-slate-400 hover:text-orange-500 transition-colors">
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
+            <span className="text-[10px] font-bold">Messages</span>
+          </Link>
             </div>
 
             <div className="space-y-4">
