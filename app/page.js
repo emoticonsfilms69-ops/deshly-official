@@ -232,7 +232,9 @@ export default function Home() {
       {/* MODERN STICKY HEADER */}
       <header className="sticky top-0 z-50 backdrop-blur-lg bg-white/80 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-800">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
-          <h1 className="text-2xl font-black bg-gradient-to-r from-orange-500 to-green-600 bg-clip-text text-transparent tracking-tight">Deshly</h1>
+          <Link href="/">
+  <img src="/logo.png" alt="Deshly" className="h-10 w-auto" />
+</Link>
           <div className="flex items-center gap-3">
             <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-lg">
               {isDarkMode ? '☀️' : '🌙'}
@@ -254,7 +256,7 @@ export default function Home() {
           /* LOGIN / SIGNUP CARD */
           <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-xl border border-slate-200 dark:border-slate-800 space-y-6 mt-10">
             <div className="text-center space-y-2">
-              <h2 className="text-3xl font-black text-slate-900 dark:text-white">Welcome to Deshly</h2>
+              <img src="/logo.png" alt="Deshly" className="h-16 w-auto mx-auto mb-4" />
               <p className="text-slate-500 dark:text-slate-400">Join the community of proud citizens.</p>
             </div>
             <div className="flex gap-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
