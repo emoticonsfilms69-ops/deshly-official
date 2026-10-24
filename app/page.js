@@ -114,12 +114,12 @@ export default function Home() {
     fetchProfile(profile.id);
     setLoading(false);
   }
-  async function handleUpdateProfile() {
-    setLoading(true);
-    await supabase.from("profiles").update({ full_name: editName, username: editUsername }).eq("id", profile.id);
-    fetchProfile(profile.id); fetchPosts(); setIsEditing(false);
-    setLoading(false);
-  }
+    async function handleUpdateProfile() {
+     setLoading(true);
+     await supabase.from("profiles").update({ full_name: editName, username: editUsername, bio: editBio }).eq("id", profile.id);
+     fetchProfile(profile.id); fetchPosts(); setIsEditing(false);
+     setLoading(false);
+   }
   function handleImageChange(e) {
     const file = e.target.files[0];
     if (file) { setSelectedImage(file); setImagePreview(URL.createObjectURL(file)); }
