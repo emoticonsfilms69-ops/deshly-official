@@ -103,7 +103,7 @@ export default function Home() {
     fetchProfile(profile.id); fetchPosts(); setIsEditing(false); setLoading(false);
   }
   function handleImageChange(e) { const file = e.target.files[0]; if (file) { setSelectedImage(file); setImagePreview(URL.createObjectURL(file)); } }
-   async function handleCreatePost() {
+     async function handleCreatePost() {
     if (!newPostContent.trim() && !selectedImage) return; 
     setLoading(true); 
     let imageUrl = null; 
@@ -124,9 +124,6 @@ export default function Home() {
     }
 
     await supabase.from("posts").insert([{ user_id: user.id, content: newPostContent, image_url: imageUrl, video_url: videoUrl }]);
-    setNewPostContent(""); setSelectedImage(null); setImagePreview(null); fetchPosts(); setLoading(false);
-  }
-    await supabase.from("posts").insert([{ user_id: user.id, content: newPostContent, image_url: imageUrl }]);
     setNewPostContent(""); setSelectedImage(null); setImagePreview(null); fetchPosts(); setLoading(false);
   }
   async function handleDeletePost(postId) { if (!confirm("Delete this post?")) return; await supabase.from("posts").delete().eq("id", postId).eq("user_id", user.id); fetchPosts(); }
