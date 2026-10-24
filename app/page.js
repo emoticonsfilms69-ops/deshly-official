@@ -233,8 +233,8 @@ export default function Home() {
       <header className="sticky top-0 z-50 backdrop-blur-lg bg-white/80 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-800">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
           <Link href="/">
-  <img src="/logo.png" alt="Deshly" className="h-10 w-auto" />
-</Link>
+            <img src="/logo.png" alt="Deshly" className="h-10 w-auto" />
+          </Link>
           <div className="flex items-center gap-3">
             <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-lg">
               {isDarkMode ? '☀️' : '🌙'}
@@ -253,18 +253,11 @@ export default function Home() {
 
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
         {!user ? (
-          /* LOGIN / SIGNUP CARD */          <div className="relative overflow-hidden rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 mt-10">
-            {/* COVER PHOTO BACKGROUND */}
+          /* LOGIN / SIGNUP CARD WITH COVER PHOTO */
+          <div className="relative overflow-hidden rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 mt-10">
             <div className="relative h-64 sm:h-80">
-              <img 
-                src="/cover.jpg" 
-                alt="Indian Culture" 
-                className="w-full h-full object-cover"
-              />
-              {/* Dark overlay for text readability */}
+              <img src="/cover.jpg" alt="Indian Culture" className="w-full h-full object-cover" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent"></div>
-              
-              {/* Logo and Title on Cover */}
               <div className="absolute bottom-6 left-6 right-6">
                 <img src="/logo.png" alt="Deshly" className="h-12 w-auto mb-3" />
                 <h2 className="text-3xl font-black text-white">Welcome to Deshly</h2>
@@ -272,7 +265,6 @@ export default function Home() {
               </div>
             </div>
 
-            {/* LOGIN FORM */}
             <div className="bg-white dark:bg-slate-900 p-8 space-y-6">
               <div className="flex gap-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
                 <button onClick={() => setIsLoginMode(false)} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${!isLoginMode ? 'bg-white dark:bg-slate-700 shadow-sm text-slate-900 dark:text-white' : 'text-slate-500'}`}>Sign Up</button>
@@ -286,22 +278,6 @@ export default function Home() {
                 {loading ? "Processing..." : (isLoginMode ? "Log In" : "Create Account")}
               </button>
             </div>
-          </div>
-            <div className="text-center space-y-2">
-              <img src="/logo.png" alt="Deshly" className="h-16 w-auto mx-auto mb-4" />
-              <p className="text-slate-500 dark:text-slate-400">Join the community of proud citizens.</p>
-            </div>
-            <div className="flex gap-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
-              <button onClick={() => setIsLoginMode(false)} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${!isLoginMode ? 'bg-white dark:bg-slate-700 shadow-sm text-slate-900 dark:text-white' : 'text-slate-500'}`}>Sign Up</button>
-              <button onClick={() => setIsLoginMode(true)} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${isLoginMode ? 'bg-white dark:bg-slate-700 shadow-sm text-slate-900 dark:text-white' : 'text-slate-500'}`}>Log In</button>
-            </div>
-            <div className="space-y-3">
-              <input type="email" placeholder="Email address" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-3.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all" />
-              <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full p-3.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all" />
-            </div>
-            <button onClick={isLoginMode ? handleLogin : handleSignUp} disabled={loading} className="w-full bg-gradient-to-r from-orange-500 to-green-600 hover:from-orange-600 hover:to-green-700 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-orange-500/20 transition-all transform hover:scale-[1.02] active:scale-95">
-              {loading ? "Processing..." : (isLoginMode ? "Log In" : "Create Account")}
-            </button>
           </div>
         ) : (
           <>
@@ -457,7 +433,6 @@ export default function Home() {
                       )}
                     </div>
 
-                    {/* COMMENTS */}
                     {postComments.length > 0 && (
                       <div className="mt-4 space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800">
                         {postComments.map((comment) => (
