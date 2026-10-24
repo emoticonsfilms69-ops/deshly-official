@@ -31,6 +31,9 @@ export default function Home() {
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [stories, setStories] = useState([]);
+const [activeStory, setActiveStory] = useState(null);
+const [storyLoading, setStoryLoading] = useState(false);
   const notifRef = useRef(null);
 
   useEffect(() => { checkUser(); }, []);
@@ -63,7 +66,16 @@ export default function Home() {
   async function fetchUserLikes(userId) { const { data } = await supabase.from("likes").select("post_id").eq("user_id", userId); if (data) setUserLikes(data.map(like => like.post_id)); }
   async function fetchComments() { const { data } = await supabase.from("comments").select("*, profiles(full_name, username, avatar_url)").order("created_at", { ascending: true }); if (data) setComments(data); }
   async function fetchFollowing(userId) { const { data } = await supabase.from("follows").select("following_id").eq("follower_id", userId); if (data) setFollowingIds(data.map(f => f.following_id)); }
-  
+  async function fetchStories() {
+  // Fetch stories from the last 24 hours
+  const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const { data } = await supabase
+    .from("stories")
+    .select("*, profiles(full_name, username, avatar_url)")
+    .gte("created_at", twentyFourHoursAgo)
+    .order("created_at", { ascending: false });
+  if (data) setStories(data);
+}
   async function fetchNotifications() {
     if (!user) return;
     const { data } = await supabase.from("notifications").select("*, from_user:profiles!notifications_from_user_id_fkey(full_name, username, avatar_url)").eq("user_id", user.id).order("created_at", { ascending: false }).limit(20);
@@ -103,7 +115,23 @@ export default function Home() {
     fetchProfile(profile.id); fetchPosts(); setIsEditing(false); setLoading(false);
   }
   function handleImageChange(e) { const file = e.target.files[0]; if (file) { setSelectedImage(file); setImagePreview(URL.createObjectURL(file)); } }
-     async function handleCreatePost() {
+  async function handleStoryUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  setStoryLoading(true);
+  const fileExt = file.name.split('.').pop();
+  const filePath = `${user.id}/${Date.now()}.${fileExt}`;
+  
+  const { error: uploadError } = await supabase.storage.from('stories').upload(filePath, file);
+  if (uploadError) { setMessage("Error uploading story"); setStoryLoading(false); return; }
+  
+  const { data } = supabase.storage.from('stories').getPublicUrl(filePath);
+  await supabase.from("stories").insert([{ user_id: user.id, image_url: data.publicUrl }]);
+  
+  fetchStories();
+  setStoryLoading(false);
+}  
+  async function handleCreatePost() {
     if (!newPostContent.trim() && !selectedImage) return; 
     setLoading(true); 
     let imageUrl = null; 
@@ -139,7 +167,7 @@ export default function Home() {
     const isFollowing = followingIds.includes(targetUserId);
     if (isFollowing) { await supabase.from("follows").delete().eq("follower_id", user.id).eq("following_id", targetUserId); } 
     else { await supabase.from("follows").insert({ follower_id: user.id, following_id: targetUserId }); await createNotification(targetUserId, 'follow', user.id); }
-    fetchFollowing(user.id);
+    fetchFollowing(user.id);fetchStories();
   }
   async function handleAddComment(postId) {
     const text = commentInputs[postId]; if (!text || !text.trim()) return;
@@ -265,7 +293,39 @@ export default function Home() {
                 </div>
               </div>
             </div>
+            {/* STORIES BAR */}
+            <div className="bg-white dark:bg-slate-900 p-4 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-x-auto">
+              <div className="flex gap-4 min-w-max">
+                {/* Add Story Button */}
+                <div className="flex flex-col items-center gap-1 cursor-pointer">
+                  <div className="relative w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center border-2 border-dashed border-slate-300 dark:border-slate-600">
+                    {storyLoading ? <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-orange-500"></div> : (
+                      <>
+                        <svg className="w-6 h-6 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
+                        <input type="file" accept="image/*" onChange={handleStoryUpload} className="absolute inset-0 opacity-0 cursor-pointer" />
+                      </>
+                    )}
+                  </div>
+                  <span className="text-[10px] font-bold text-slate-500">Add Story</span>
+                </div>
 
+                {/* Other Users' Stories */}
+                {stories.map((story) => (
+                  <button key={story.id} onClick={() => setActiveStory(story)} className="flex flex-col items-center gap-1">
+                    <div className="p-0.5 rounded-full bg-gradient-to-tr from-orange-500 to-green-600">
+                      <div className="p-0.5 bg-white dark:bg-slate-900 rounded-full">
+                        {story.profiles?.avatar_url ? (
+                          <img src={story.profiles.avatar_url} className="w-14 h-14 rounded-full object-cover" alt="Story" />
+                        ) : (
+                          <div className="w-14 h-14 rounded-full bg-slate-300 flex items-center justify-center font-bold text-white">{story.profiles?.full_name?.[0] || '?'}</div>
+                        )}
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-500 truncate w-16 text-center">{story.profiles?.full_name || 'User'}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="flex gap-2 bg-white dark:bg-slate-900 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-800 w-fit mx-auto">
               <button onClick={() => setFeedFilter('all')} className={`flex-1 sm:flex-none px-4 sm:px-8 py-2 rounded-xl text-xs sm:text-sm font-bold ${feedFilter === 'all' ? 'bg-slate-900 dark:bg-white dark:text-slate-900 text-white' : 'text-slate-500'}`}>For You</button>
               <button onClick={() => setFeedFilter('following')} className={`flex-1 sm:flex-none px-4 sm:px-8 py-2 rounded-xl text-xs sm:text-sm font-bold ${feedFilter === 'following' ? 'bg-slate-900 dark:bg-white dark:text-slate-900 text-white' : 'text-slate-500'}`}>Following</button>
@@ -340,6 +400,24 @@ export default function Home() {
           </button>
         </div>
       </nav>
+                {/* STORY VIEWER MODAL */}
+      {activeStory && (
+        <div className="fixed inset-0 z-[100] bg-black flex items-center justify-center p-4">
+          <button onClick={() => setActiveStory(null)} className="absolute top-4 right-4 text-white bg-black/50 p-2 rounded-full z-10">✕</button>
+          <div className="relative max-w-md w-full h-[80vh] rounded-2xl overflow-hidden bg-slate-900 shadow-2xl">
+            <img src={activeStory.image_url} alt="Story" className="w-full h-full object-cover" />
+            <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent">
+              <div className="flex items-center gap-3">
+                {activeStory.profiles?.avatar_url ? <img src={activeStory.profiles.avatar_url} className="w-10 h-10 rounded-full border-2 border-white" /> : <div className="w-10 h-10 rounded-full bg-orange-500"></div>}
+                <div>
+                  <p className="font-bold text-white">{activeStory.profiles?.full_name}</p>
+                  <p className="text-xs text-white/70">{timeAgo(activeStory.created_at)}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
