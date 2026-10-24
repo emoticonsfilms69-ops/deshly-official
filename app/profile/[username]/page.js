@@ -101,6 +101,7 @@ export default function ProfilePage() {
           <div>
             <h1 className="font-bold text-slate-900 dark:text-white text-lg">{profile.full_name}</h1>
             <p className="text-xs text-slate-500 dark:text-slate-400">{posts.length} posts</p>
+    {profile.bio && <p className="mt-3 text-slate-700 dark:text-slate-300 text-sm italic">{profile.bio}</p>}
           </div>
         </div>
       </header>
