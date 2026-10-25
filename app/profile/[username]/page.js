@@ -131,11 +131,43 @@ export default function ProfilePage() {
         </div>
 
         <div className="px-4 py-6 space-y-4">
-          {posts.length === 0 ? (
+                   {profile.is_private && !isFollowing && user?.id !== profile.id ? (
+            <div className="text-center py-16">
+              <svg className="w-16 h-16 mx-auto text-slate-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white">This Account is Private</h3>
+              <p className="text-slate-500 mt-2">Follow this user to see their posts.</p>
+            </div>
+          ) : posts.length === 0 ? (
             <div className="text-center text-slate-500 dark:text-slate-400 py-16">
               <p className="text-4xl mb-2">📝</p>
               <p className="font-medium">No posts yet.</p>
             </div>
+          ) : (
+            posts.map((post) => (
+              <div key={post.id} className="bg-white dark:bg-slate-900 p-5 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800">
+                <div className="flex items-center gap-3 mb-3">
+                  {getAvatar(post.profiles, "w-10 h-10")}
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="font-bold text-slate-900 dark:text-white">{post.profiles?.full_name}</p>
+                      {post.profiles?.is_coi && <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold text-white bg-gradient-to-r from-orange-500 to-green-600">COI</span>}
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                      <span>@{post.profiles?.username}</span>
+                      <span>•</span>
+                      <span>{timeAgo(post.created_at)}</span>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-slate-800 dark:text-slate-200 leading-relaxed mb-4 whitespace-pre-wrap text-[15px]">{post.content}</p>
+                {post.image_url && <div className="mb-4 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800"><img src={post.image_url} alt="Post" className="w-full h-auto object-cover max-h-[500px]" /></div>}
+                {post.video_url && <div className="mb-4 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-black"><video src={post.video_url} controls className="w-full h-auto max-h-[500px]" /></div>}
+                <div className="flex items-center gap-6 pt-3 border-t border-slate-100 dark:border-slate-800 text-sm text-slate-500 dark:text-slate-400">
+                  <span className="flex items-center gap-1.5">❤️ {post.like_count || 0}</span>
+                </div>
+              </div>
+            ))
+          )}
           ) : (
             posts.map((post) => (
               <div key={post.id} className="bg-white dark:bg-slate-900 p-5 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800">
