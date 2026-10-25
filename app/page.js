@@ -21,6 +21,7 @@ export default function Home() {
   const [editName, setEditName] = useState("");
   const [editUsername, setEditUsername] = useState("");
   const [editBio, setEditBio] = useState("");
+     const [isPrivate, setIsPrivate] = useState(false);
   const [commentInputs, setCommentInputs] = useState({});
   const [feedFilter, setFeedFilter] = useState("all");
   const [isLoginMode, setIsLoginMode] = useState(false);
@@ -43,6 +44,7 @@ const [storyLoading, setStoryLoading] = useState(false);
   }, [isDarkMode]);
   useEffect(() => {
     if (profile) { setEditName(profile.full_name || ""); setEditUsername(profile.username || ""); setEditBio(profile.bio || ""); }
+       setIsPrivate(profile.is_private || false);
   }, [profile]);
   useEffect(() => {
     function handleClickOutside(event) {
@@ -111,7 +113,7 @@ const [storyLoading, setStoryLoading] = useState(false);
   }
   async function handleClaimCOI() { setLoading(true); await supabase.from("profiles").update({ is_coi: true }).eq("id", profile.id); fetchProfile(profile.id); setLoading(false); }
   async function handleUpdateProfile() {
-    setLoading(true); await supabase.from("profiles").update({ full_name: editName, username: editUsername, bio: editBio }).eq("id", profile.id);
+      await supabase.from("profiles").update({ full_name: editName, username: editUsername, bio: editBio, is_private: isPrivate }).eq("id", profile.id);
     fetchProfile(profile.id); fetchPosts(); setIsEditing(false); setLoading(false);
   }
   function handleImageChange(e) { const file = e.target.files[0]; if (file) { setSelectedImage(file); setImagePreview(URL.createObjectURL(file)); } }
@@ -267,7 +269,19 @@ const [storyLoading, setStoryLoading] = useState(false);
                 <input type="text" placeholder="Your Name" value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white outline-none" />
                 <input type="text" placeholder="Username" value={editUsername} onChange={(e) => setEditUsername(e.target.value.replace(/\s/g, ''))} className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white outline-none" />
                 <textarea placeholder="Write a short bio..." value={editBio} onChange={(e) => setEditBio(e.target.value)} className="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white outline-none h-20 resize-none" />
-                <button onClick={handleUpdateProfile} disabled={loading} className="w-full bg-slate-900 dark:bg-white dark:text-slate-900 text-white py-3 rounded-xl font-bold">Save Changes</button>
+                 <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+     <div>
+       <p className="font-bold text-sm text-slate-900 dark:text-white">Private Account</p>
+       <p className="text-xs text-slate-500">Only followers can see your posts</p>
+     </div>
+     <button 
+       onClick={() => setIsPrivate(!isPrivate)} 
+       className={`w-12 h-6 rounded-full transition-colors flex items-center p-1 ${isPrivate ? 'bg-orange-500 justify-end' : 'bg-slate-300 dark:bg-slate-600 justify-start'}`}
+     >
+       <div className="w-4 h-4 bg-white rounded-full shadow-md"></div>
+     </button>
+   </div>  
+              <button onClick={handleUpdateProfile} disabled={loading} className="w-full bg-slate-900 dark:bg-white dark:text-slate-900 text-white py-3 rounded-xl font-bold">Save Changes</button>
               </div>
             )}
 
