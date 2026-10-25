@@ -45,7 +45,11 @@ export default function ProfilePage() {
     
     if (profileData) {
       setProfile(profileData);
-      const { data: postsData } = await supabase.from("posts").select("*, profiles(full_name, username, is_coi, avatar_url), likes(count)").eq("user_id", profileData.id).order("created_at", { ascending: false });
+      const { data: postsData } = await supabase
+        .from("posts")
+        .select("*, profiles(full_name, username, is_coi, avatar_url), likes(count)")
+        .eq("user_id", profileData.id)
+        .order("created_at", { ascending: false });
       
       if (postsData) {
         const formattedPosts = postsData.map(post => ({
@@ -85,11 +89,13 @@ export default function ProfilePage() {
   };
 
   if (loading) return <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500"></div></div>;
-  if (!profile) return <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center text-slate-500">
-    <p className="text-4xl mb-4">🔍</p>
-    <p className="font-medium">User not found.</p>
-    <Link href="/" className="mt-4 text-orange-500 hover:underline">Go back home</Link>
-  </div>;
+  if (!profile) return (
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center text-slate-500">
+      <p className="text-4xl mb-4">🔍</p>
+      <p className="font-medium">User not found.</p>
+      <Link href="/" className="mt-4 text-orange-500 hover:underline">Go back home</Link>
+    </div>
+  );
 
   return (
     <main className="min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
@@ -101,7 +107,6 @@ export default function ProfilePage() {
           <div>
             <h1 className="font-bold text-slate-900 dark:text-white text-lg">{profile.full_name}</h1>
             <p className="text-xs text-slate-500 dark:text-slate-400">{posts.length} posts</p>
-    {profile.bio && <p className="mt-3 text-slate-700 dark:text-slate-300 text-sm italic">{profile.bio}</p>}
           </div>
         </div>
       </header>
@@ -119,8 +124,10 @@ export default function ProfilePage() {
               <div className="flex items-center gap-2">
                 <h2 className="text-2xl font-black text-slate-900 dark:text-white">{profile.full_name}</h2>
                 {profile.is_coi && <span className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white bg-gradient-to-r from-orange-500 to-green-600">COI</span>}
+                {profile.is_private && <span className="px-2 py-0.5 rounded-full text-[10px] font-bold text-slate-600 bg-slate-200 dark:text-slate-300 dark:bg-slate-700">🔒 Private</span>}
               </div>
               <p className="text-slate-500 dark:text-slate-400">@{profile.username}</p>
+              {profile.bio && <p className="mt-2 text-slate-700 dark:text-slate-300 text-sm italic">{profile.bio}</p>}
             </div>
             {user && user.id !== profile.id && (
               <button onClick={handleToggleFollow} className={`px-6 py-2 rounded-full text-sm font-bold border transition-all ${isFollowing ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white border-slate-200 dark:border-slate-700 hover:bg-red-50 hover:text-red-500 hover:border-red-200' : 'bg-slate-900 dark:bg-white dark:text-slate-900 text-white border-slate-900 dark:border-white hover:opacity-90'}`}>
@@ -131,7 +138,7 @@ export default function ProfilePage() {
         </div>
 
         <div className="px-4 py-6 space-y-4">
-                   {profile.is_private && !isFollowing && user?.id !== profile.id ? (
+          {profile.is_private && !isFollowing && user?.id !== profile.id ? (
             <div className="text-center py-16">
               <svg className="w-16 h-16 mx-auto text-slate-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
               <h3 className="text-xl font-bold text-slate-900 dark:text-white">This Account is Private</h3>
@@ -160,35 +167,14 @@ export default function ProfilePage() {
                   </div>
                 </div>
                 <p className="text-slate-800 dark:text-slate-200 leading-relaxed mb-4 whitespace-pre-wrap text-[15px]">{post.content}</p>
-                {post.image_url && <div className="mb-4 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800"><img src={post.image_url} alt="Post" className="w-full h-auto object-cover max-h-[500px]" /></div>}
-                {post.video_url && <div className="mb-4 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-black"><video src={post.video_url} controls className="w-full h-auto max-h-[500px]" /></div>}
-                <div className="flex items-center gap-6 pt-3 border-t border-slate-100 dark:border-slate-800 text-sm text-slate-500 dark:text-slate-400">
-                  <span className="flex items-center gap-1.5">❤️ {post.like_count || 0}</span>
-                </div>
-              </div>
-            ))
-          )}
-          ) : (
-            posts.map((post) => (
-              <div key={post.id} className="bg-white dark:bg-slate-900 p-5 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800">
-                <div className="flex items-center gap-3 mb-3">
-                  {getAvatar(post.profiles, "w-10 h-10")}
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="font-bold text-slate-900 dark:text-white">{post.profiles?.full_name}</p>
-                      {post.profiles?.is_coi && <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold text-white bg-gradient-to-r from-orange-500 to-green-600">COI</span>}
-                    </div>
-                    <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-                      <span>@{post.profiles?.username}</span>
-                      <span>•</span>
-                      <span>{timeAgo(post.created_at)}</span>
-                    </div>
-                  </div>
-                </div>
-                <p className="text-slate-800 dark:text-slate-200 leading-relaxed mb-4 whitespace-pre-wrap text-[15px]">{post.content}</p>
                 {post.image_url && (
                   <div className="mb-4 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800">
                     <img src={post.image_url} alt="Post" className="w-full h-auto object-cover max-h-[500px]" />
+                  </div>
+                )}
+                {post.video_url && (
+                  <div className="mb-4 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-black">
+                    <video src={post.video_url} controls className="w-full h-auto max-h-[500px]" />
                   </div>
                 )}
                 <div className="flex items-center gap-6 pt-3 border-t border-slate-100 dark:border-slate-800 text-sm text-slate-500 dark:text-slate-400">
