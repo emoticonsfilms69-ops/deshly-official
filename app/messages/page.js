@@ -26,24 +26,25 @@ export default function MessagesPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       setUser(user);
-      fetchConversations();
+      // Pass the user object directly to avoid timing issues
+      fetchConversations(user); 
     } else {
       setLoading(false);
     }
   }
 
-  async function fetchConversations() {
-    if (!user) return;
-    // Get all messages where user is sender or receiver
+  // Updated to accept currentUser
+  async function fetchConversations(currentUser) {
+    if (!currentUser) return;
+    
     const { data } = await supabase
       .from("messages")
       .select("sender_id, receiver_id, content, created_at")
-      .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
+      .or(`sender_id.eq.${currentUser.id},receiver_id.eq.${currentUser.id}`)
       .order("created_at", { ascending: false });
 
     if (data) {
-      // Get unique user IDs we've chatted with
-      const partnerIds = [...new Set(data.map(m => m.sender_id === user.id ? m.receiver_id : m.sender_id))];
+      const partnerIds = [...new Set(data.map(m => m.sender_id === currentUser.id ? m.receiver_id : m.sender_id))];
       
       if (partnerIds.length > 0) {
         const { data: profiles } = await supabase
@@ -51,7 +52,6 @@ export default function MessagesPage() {
           .select("id, full_name, username, avatar_url")
           .in("id", partnerIds);
         
-        // Sort by most recent message (simplified)
         setConversations(profiles || []);
       }
     }
@@ -90,10 +90,10 @@ export default function MessagesPage() {
   }
 
   async function handleSend() {
-    if (!newMessage.trim() || !activeChat) return;
+    if (!newMessage.trim() || !activeChat || !user) return;
     
     const msgText = newMessage;
-    setNewMessage(""); // Clear input immediately for better UX
+    setNewMessage(""); 
     
     const { error } = await supabase.from("messages").insert({
       sender_id: user.id,
@@ -102,7 +102,6 @@ export default function MessagesPage() {
     });
 
     if (!error) {
-      // Optimistically update UI
       setMessages(prev => [...prev, { sender_id: user.id, content: msgText, created_at: new Date().toISOString() }]);
     }
   }
@@ -123,15 +122,9 @@ export default function MessagesPage() {
     <main className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col">
       {/* HEADER */}
       <header className="sticky top-0 z-50 backdrop-blur-lg bg-white/90 dark:bg-slate-900/90 border-b border-slate-200 dark:border-slate-800 px-4 py-3 flex items-center gap-4">
-        {activeChat ? (
-          <button onClick={() => setActiveChat(null)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800">
-            <svg className="w-5 h-5 text-slate-900 dark:text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
-          </button>
-        ) : (
-          <Link href="/" className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800">
-            <svg className="w-5 h-5 text-slate-900 dark:text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
-          </Link>
-        )}
+        <Link href="/" className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800">
+          <svg className="w-5 h-5 text-slate-900 dark:text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+        </Link>
         <div className="flex-1 flex items-center gap-3">
           {activeChat && getAvatar(activeChat, "w-8 h-8")}
           <h1 className="font-bold text-slate-900 dark:text-white text-lg truncate">
